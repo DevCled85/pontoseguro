@@ -38,6 +38,28 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 export async function getAllRegistros(): Promise<PontoRegistro[]> {
+  try {
+    // 1. Direct fetch from Firebase Firestore cloud
+    const cloudRecords = await getAllRegistrosFromFirestore();
+    if (cloudRecords && cloudRecords.length > 0) {
+      // Keep local IndexedDB in sync as fast offline cache
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction(STORE_REGISTROS, 'readwrite');
+        const store = tx.objectStore(STORE_REGISTROS);
+        for (const rec of cloudRecords) {
+          store.put(rec);
+        }
+      } catch (cacheErr) {
+        console.warn('Erro ao atualizar cache local:', cacheErr);
+      }
+      return cloudRecords;
+    }
+  } catch (err) {
+    console.warn('Firestore inacessível no momento, usando cache local IndexedDB:', err);
+  }
+
+  // 2. Fallback to local IndexedDB
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_REGISTROS, 'readonly');
@@ -47,7 +69,7 @@ export async function getAllRegistros(): Promise<PontoRegistro[]> {
     request.onsuccess = () => {
       const list: PontoRegistro[] = request.result || [];
       // Sort newest date first
-      list.sort((a, b) => b.data.localeCompare(a.data));
+      list.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
       resolve(list);
     };
     request.onerror = () => reject(request.error);
@@ -67,9 +89,17 @@ export async function getRegistroById(id: string): Promise<PontoRegistro | undef
 }
 
 /**
- * Saves a registro locally to IndexedDB and synchronizes to Firebase Firestore cloud
+ * Saves a registro directly to Firebase Firestore cloud and local IndexedDB
  */
 export async function saveRegistro(registro: PontoRegistro): Promise<void> {
+  // 1. Save directly to Firebase Firestore
+  try {
+    await saveRegistroToFirestore(registro);
+  } catch (err) {
+    console.warn('Aviso: Firestore temporariamente offline ou erro na nuvem, mantendo no cache:', err);
+  }
+
+  // 2. Cache in local IndexedDB
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_REGISTROS, 'readwrite');
@@ -79,17 +109,20 @@ export async function saveRegistro(registro: PontoRegistro): Promise<void> {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
-
-  // Background Cloud Sync to Firebase Firestore
-  saveRegistroToFirestore(registro).catch((err) => {
-    console.warn('Registro salvo localmente no IndexedDB, sincronização com Firestore pendente:', err);
-  });
 }
 
 /**
- * Deletes a registro from IndexedDB and Firebase Firestore
+ * Deletes a registro directly from Firebase Firestore and local IndexedDB
  */
 export async function deleteRegistro(id: string): Promise<void> {
+  // 1. Delete from Firebase Firestore
+  try {
+    await deleteRegistroFromFirestore(id);
+  } catch (err) {
+    console.warn('Aviso: Erro ao excluir no Firestore, prosseguindo com exclusão local:', err);
+  }
+
+  // 2. Delete from local IndexedDB
   const db = await openDatabase();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_REGISTROS, 'readwrite');
@@ -98,11 +131,6 @@ export async function deleteRegistro(id: string): Promise<void> {
 
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
-  });
-
-  // Background Cloud Sync deletion in Firestore
-  deleteRegistroFromFirestore(id).catch((err) => {
-    console.warn('Exclusão local concluída, Firestore pendente:', err);
   });
 }
 
@@ -180,26 +208,25 @@ export async function syncWithFirestore(): Promise<{
   }
 }
 
-/**
- * Listens for real-time cloud updates from Firebase Firestore
- */
-export function listenToCloudUpdates(onNewData: () => void): () => void {
+export function listenToCloudUpdates(onNewData: (registros: PontoRegistro[]) => void): () => void {
   return subscribeToFirestoreRegistros(async (cloudRegistros) => {
-    if (!cloudRegistros || cloudRegistros.length === 0) return;
     try {
       const db = await openDatabase();
       const tx = db.transaction(STORE_REGISTROS, 'readwrite');
       const store = tx.objectStore(STORE_REGISTROS);
-
+      store.clear();
       for (const reg of cloudRegistros) {
         store.put(reg);
       }
-
       tx.oncomplete = () => {
-        onNewData();
+        onNewData(cloudRegistros);
+      };
+      tx.onerror = () => {
+        onNewData(cloudRegistros);
       };
     } catch (e) {
       console.warn('Erro ao mesclar atualizações em tempo real do Firestore:', e);
+      onNewData(cloudRegistros);
     }
   });
 }

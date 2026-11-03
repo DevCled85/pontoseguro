@@ -10,6 +10,8 @@ import {
   RotateCw,
   Loader2,
   CheckCircle2,
+  ExternalLink,
+  Key,
 } from 'lucide-react';
 import { PontoRegistro, StatusRh } from '../types/ponto';
 import {
@@ -19,7 +21,12 @@ import {
   minutesToTimeString,
 } from '../utils/timeCalculations';
 import { compressAndReadFile } from '../utils/imageUtils';
-import { scanCanhotoImage } from '../services/aiScanner';
+import {
+  scanCanhotoImage,
+  hasGeminiApiKey,
+  getClientGeminiApiKey,
+  saveClientGeminiApiKey,
+} from '../services/aiScanner';
 
 interface PontoFormModalProps {
   isOpen: boolean;
@@ -61,6 +68,11 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [scanConfidence, setScanConfidence] = useState<'ALTA' | 'MEDIA' | 'BAIXA' | null>(null);
 
+  // Gemini API Key inline configuration for GitHub Pages
+  const [showApiKeyPrompt, setShowApiKeyPrompt] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [keySavedMessage, setKeySavedMessage] = useState('');
+
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -85,6 +97,7 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
       setFotoNome(initialData.fotoNome || '');
       setScanMessage(null);
       setScanConfidence(null);
+      setShowApiKeyPrompt(false);
     } else {
       setData(preselectedDate || getTodayDateString());
       setEntrada('');
@@ -100,6 +113,7 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
       setFotoNome('');
       setScanMessage(null);
       setScanConfidence(null);
+      setShowApiKeyPrompt(false);
     }
     setFormError('');
   }, [initialData, preselectedDate, defaultEmpresa, isOpen]);
@@ -118,12 +132,20 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
   const handleFileSelected = async (file: File) => {
     try {
       setFormError('');
-      const compressed = await compressAndReadFile(file, 1600, 0.88);
+      const compressed = await compressAndReadFile(file, 1024, 0.72);
       setFotoUrl(compressed.dataUrl);
       setFotoNome(file.name || 'canhoto_foto.jpg');
       setFotoTamanhoOriginal(compressed.originalSize);
 
-      // Offer automatic AI scan immediately after upload if user hasn't typed
+      // Check if API key is needed on GitHub Pages
+      const isGitHubPages = window.location.hostname.includes('github.io');
+      if (isGitHubPages && !hasGeminiApiKey()) {
+        setShowApiKeyPrompt(true);
+        setScanMessage('Foto anexada. Para a IA ler os horários no GitHub Pages, informe sua chave Gemini abaixo.');
+        return;
+      }
+
+      // Automatically scan if no times are filled yet
       if (!entrada && !saidaFinal) {
         scanImageWithAi(compressed.dataUrl);
       }
@@ -133,18 +155,40 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
     }
   };
 
-  const scanImageWithAi = async (dataUrlToScan: string) => {
+  const handleSaveKeyAndScan = async () => {
+    if (!customKeyInput.trim()) {
+      setFormError('Por favor, cole sua chave do Google Gemini.');
+      return;
+    }
+    saveClientGeminiApiKey(customKeyInput.trim());
+    setKeySavedMessage('Chave salva com sucesso!');
+    setShowApiKeyPrompt(false);
+    if (fotoUrl) {
+      await scanImageWithAi(fotoUrl, customKeyInput.trim());
+    }
+  };
+
+  const scanImageWithAi = async (dataUrlToScan: string, keyOverride?: string) => {
     if (!dataUrlToScan) {
       setFormError('Tire ou selecione uma foto do canhoto antes de escanear.');
+      return;
+    }
+
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    const effectiveKey = keyOverride || getClientGeminiApiKey();
+
+    if (isGitHubPages && !effectiveKey) {
+      setShowApiKeyPrompt(true);
       return;
     }
 
     setIsScanning(true);
     setScanMessage('Analisando caracteres do canhoto térmico com IA...');
     setScanConfidence(null);
+    setFormError('');
 
     try {
-      const extracted = await scanCanhotoImage(dataUrlToScan, 'image/jpeg');
+      const extracted = await scanCanhotoImage(dataUrlToScan, 'image/jpeg', effectiveKey);
       let filledCount = 0;
 
       if (extracted.data && /^\d{4}-\d{2}-\d{2}$/.test(extracted.data)) {
@@ -177,14 +221,47 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
       setScanMessage(
         filledCount > 0
           ? `IA identificou ${filledCount} horário(s) no canhoto. Verifique e confirme abaixo.`
-          : 'Canhoto lido, mas confirme os horários nos campos abaixo.'
+          : 'Canhoto analisado. Confira os horários nos campos abaixo.'
       );
     } catch (err: unknown) {
       const e = err as Error;
       setScanMessage(null);
-      setFormError('Leitura automática indisponível (' + e.message + '). Preencha manualmente.');
+      if (e.message && e.message.includes('MISSING_KEY')) {
+        setShowApiKeyPrompt(true);
+      } else {
+        setFormError('Leitura automática: ' + e.message + '. Você pode preencher os horários manualmente.');
+      }
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleFillStandardHours = () => {
+    setEntrada('08:00');
+    setSaidaAlmoco('12:00');
+    setRetornoAlmoco('13:00');
+    setSaidaFinal('17:00');
+    setScanMessage('Horários padrão preenchidos (8h de jornada). Ajuste se necessário.');
+  };
+
+  const handleFillCurrentTime = () => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+
+    if (!entrada) {
+      setEntrada(timeStr);
+      setScanMessage(`Entrada preenchida com hora atual: ${timeStr}`);
+    } else if (!saidaAlmoco) {
+      setSaidaAlmoco(timeStr);
+      setScanMessage(`Saída almoço preenchida com hora atual: ${timeStr}`);
+    } else if (!retornoAlmoco) {
+      setRetornoAlmoco(timeStr);
+      setScanMessage(`Volta almoço preenchida com hora atual: ${timeStr}`);
+    } else {
+      setSaidaFinal(timeStr);
+      setScanMessage(`Saída final preenchida com hora atual: ${timeStr}`);
     }
   };
 
@@ -296,6 +373,7 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
               className="hidden"
               onChange={(e) => {
                 if (e.target.files?.[0]) handleFileSelected(e.target.files[0]);
+                e.target.value = '';
               }}
             />
             <input
@@ -305,11 +383,83 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
               className="hidden"
               onChange={(e) => {
                 if (e.target.files?.[0]) handleFileSelected(e.target.files[0]);
+                e.target.value = '';
               }}
             />
 
+            {/* Inline Gemini API Key Setup for GitHub Pages */}
+            {showApiKeyPrompt && (
+              <div className="mt-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-xs space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-white block">
+                      Ativar Leitor Inteligente de Canhoto por IA
+                    </span>
+                    <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                      No GitHub Pages (site online), informe uma vez sua chave gratuita do Google Gemini para ler fotos de canhotos automaticamente.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="password"
+                    value={customKeyInput}
+                    onChange={(e) => setCustomKeyInput(e.target.value)}
+                    placeholder="Cole aqui sua chave Gemini (AIzaSy...)"
+                    className="flex-1 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveKeyAndScan}
+                    disabled={isScanning}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-500 transition-colors shadow-sm disabled:opacity-50 shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{isScanning ? 'Lendo...' : 'Salvar e Ler Foto'}</span>
+                  </button>
+                </div>
+
+                {keySavedMessage && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    {keySavedMessage}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-emerald-500/20 text-[11px]">
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-700 dark:text-emerald-300 font-semibold underline inline-flex items-center gap-1"
+                  >
+                    <span>Criar chave gratuita no Google AI Studio</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleFillStandardHours}
+                      className="text-slate-600 dark:text-slate-300 hover:text-emerald-600 hover:underline cursor-pointer"
+                    >
+                      Preencher 08h-17h
+                    </button>
+                    <span className="text-slate-300 dark:text-slate-600">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKeyPrompt(false)}
+                      className="text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
+                    >
+                      Preencher Manualmente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {fotoUrl ? (
-              <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center gap-4 mt-3">
                 <div className="relative h-44 w-32 shrink-0 overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700 bg-white shadow-sm">
                   <img
                     src={fotoUrl}
@@ -348,7 +498,7 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => cameraInputRef.current?.click()}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
                       <Camera className="h-3.5 w-3.5" />
                       <span>Tirar Outra Foto</span>
@@ -357,10 +507,19 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => galleryInputRef.current?.click()}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
                       <Upload className="h-3.5 w-3.5" />
                       <span>Escolher da Galeria</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKeyPrompt((prev) => !prev)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <Key className="h-3.5 w-3.5" />
+                      <span>Chave IA</span>
                     </button>
                   </div>
                 </div>
@@ -411,7 +570,7 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setData(getTodayDateString())}
-                    className="text-emerald-600 dark:text-emerald-400 hover:underline"
+                    className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
                     Hoje
                   </button>
@@ -419,7 +578,7 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setData(getYesterdayDateString())}
-                    className="text-emerald-600 dark:text-emerald-400 hover:underline"
+                    className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
                     Ontem
                   </button>
@@ -448,15 +607,31 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
             </div>
           </div>
 
-          {/* Section: 4 Working Times Requested by User */}
+          {/* Section: 4 Working Times with Quick Fill helpers */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 2. Horários da Jornada (HH:mm)
               </label>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Entrada · Almoço · Volta · Saída
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleFillStandardHours}
+                  className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                  title="Preencher 08:00 - 12:00 - 13:00 - 17:00"
+                >
+                  08h às 17h
+                </button>
+                <span className="text-slate-300 dark:text-slate-700">·</span>
+                <button
+                  type="button"
+                  onClick={handleFillCurrentTime}
+                  className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                  title="Preencher com o horário atual"
+                >
+                  Hora Atual
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">

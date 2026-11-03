@@ -120,11 +120,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={onOpenCloudSync}
-            title="Banco de Dados Firebase e GitHub Pages"
+            title="Banco de Dados Firebase Firestore Ativo e Conectado"
             className="flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold whitespace-nowrap bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors cursor-pointer"
           >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
             <Cloud className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="hidden sm:inline">Nuvem Firebase</span>
+            <span className="hidden sm:inline">Firebase Nuvem</span>
           </button>
 
           {/* RH Mode Toggle */}

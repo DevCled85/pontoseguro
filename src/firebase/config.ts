@@ -18,36 +18,42 @@ let authInitPromise: Promise<User> | null = null;
 /**
  * Ensures anonymous authentication is active for Firestore access rules
  */
-export async function ensureAuthenticated(): Promise<User> {
+export async function ensureAuthenticated(): Promise<User | null> {
   if (currentUser) return currentUser;
   if (authInitPromise) return authInitPromise;
 
-  authInitPromise = new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (user) => {
-        if (user) {
-          currentUser = user;
-          unsubscribe();
-          resolve(user);
-        } else {
-          try {
-            const userCred = await signInAnonymously(auth);
-            currentUser = userCred.user;
+  authInitPromise = new Promise((resolve) => {
+    try {
+      const unsubscribe = onAuthStateChanged(
+        auth,
+        async (user) => {
+          if (user) {
+            currentUser = user;
             unsubscribe();
-            resolve(userCred.user);
-          } catch (err) {
-            console.warn('Anonymous auth error, continuing with fallback:', err);
-            unsubscribe();
-            reject(err);
+            resolve(user);
+          } else {
+            try {
+              const userCred = await signInAnonymously(auth);
+              currentUser = userCred.user;
+              unsubscribe();
+              resolve(userCred.user);
+            } catch (err) {
+              console.warn('Firebase Auth anônimo não disponível, utilizando acesso direto Firestore:', err);
+              unsubscribe();
+              resolve(null as unknown as User);
+            }
           }
+        },
+        (error) => {
+          console.warn('Auth state error, continuando sem autenticação:', error);
+          unsubscribe();
+          resolve(null as unknown as User);
         }
-      },
-      (error) => {
-        unsubscribe();
-        reject(error);
-      }
-    );
+      );
+    } catch (e) {
+      console.warn('Falha ao inicializar Auth, prosseguindo com Firestore:', e);
+      resolve(null as unknown as User);
+    }
   });
 
   return authInitPromise;

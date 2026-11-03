@@ -135,10 +135,8 @@ export default function App() {
 
   // Subscribe to real-time updates from Firebase Cloud
   useEffect(() => {
-    const unsubscribe = listenToCloudUpdates(() => {
-      getAllRegistros().then((list) => {
-        setRegistros(list);
-      });
+    const unsubscribe = listenToCloudUpdates((cloudList) => {
+      setRegistros(cloudList);
     });
     return () => unsubscribe();
   }, []);

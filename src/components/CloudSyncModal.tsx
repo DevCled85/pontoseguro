@@ -159,77 +159,54 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 flex items-center justify-between gap-3">
               <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 truncate select-all">
-                {window.location.origin}
+                https://devcled85.github.io/pontoseguro/
               </span>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(window.location.origin, 99)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[11px] font-semibold shrink-0"
+              <a
+                href="https://devcled85.github.io/pontoseguro/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 text-[11px] font-semibold shrink-0"
               >
-                {copiedIndex === 99 ? (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    <span>Copiado</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" />
-                    <span>Copiar Link</span>
-                  </>
-                )}
-              </button>
+                <ExternalLink className="h-3 w-3" />
+                <span>Abrir Link Online</span>
+              </a>
             </div>
           </div>
 
-          {/* Card: GitHub & GitHub Pages Deployment Guide */}
+          {/* Card: GitHub Repository Info */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
-                <GitBranch className="h-4 w-4 text-slate-700 dark:text-slate-300" />
-                <span>Como Publicar no seu GitHub e GitHub Pages</span>
+                <GitBranch className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Repositório GitHub e Deploy Automático</span>
               </div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded">
-                Pronto para Deploy
+              <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded">
+                Ativo no GitHub
               </span>
             </div>
 
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              O repositório já está configurado com caminhos relativos (<code>base: './'</code>) e
-              o arquivo <code>.github/workflows/deploy.yml</code> do GitHub Pages pronto.
-              Para enviar para a sua conta do GitHub, crie um novo repositório vazio no
-              <strong> github.com/new</strong> e execute:
+              O seu código fonte e o workflow do <strong>GitHub Actions</strong> estão sincronizados na branch <code>main</code> do seu repositório:
             </p>
 
-            <div className="space-y-3">
-              {gitCommands.map((item, idx) => (
-                <div
-                  key={item.title}
-                  className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 p-3 space-y-1.5"
-                >
-                  <p className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">
-                    {item.title}
-                  </p>
-                  {item.cmd ? (
-                    <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-950 p-2 font-mono text-[11px] text-emerald-400">
-                      <pre className="overflow-x-auto whitespace-pre-wrap">{item.cmd}</pre>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(item.cmd, idx)}
-                        className="text-slate-400 hover:text-white p-1 rounded shrink-0"
-                        title="Copiar comando"
-                      >
-                        {copiedIndex === idx ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{item.desc}</p>
-                  )}
-                </div>
-              ))}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 p-3 flex items-center justify-between gap-3">
+              <div className="truncate">
+                <p className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                  DevCled85 / pontoseguro
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Deploy automático no GitHub Pages a cada atualização
+                </p>
+              </div>
+              <a
+                href="https://github.com/DevCled85/pontoseguro"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold shrink-0"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>Ver no GitHub</span>
+              </a>
             </div>
           </div>
         </div>

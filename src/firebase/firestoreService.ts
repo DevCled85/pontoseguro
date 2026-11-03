@@ -60,12 +60,15 @@ export async function deleteRegistroFromFirestore(id: string): Promise<void> {
 export async function getAllRegistrosFromFirestore(): Promise<PontoRegistro[]> {
   try {
     await ensureAuthenticated();
-    const q = query(collection(db, COLLECTION_PONTOS), orderBy('data', 'desc'));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(collection(db, COLLECTION_PONTOS));
     const results: PontoRegistro[] = [];
     snapshot.forEach((d) => {
-      results.push(d.data() as PontoRegistro);
+      const data = d.data() as PontoRegistro;
+      if (data && data.id) {
+        results.push(data);
+      }
     });
+    results.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
     return results;
   } catch (error) {
     console.warn('Erro ao consultar Firestore, operando em modo local:', error);
@@ -82,14 +85,17 @@ export function subscribeToFirestoreRegistros(
 ): Unsubscribe {
   try {
     ensureAuthenticated().catch((e) => console.warn('Auth check in subscribe:', e));
-    const q = query(collection(db, COLLECTION_PONTOS), orderBy('data', 'desc'));
     return onSnapshot(
-      q,
+      collection(db, COLLECTION_PONTOS),
       (snapshot) => {
         const results: PontoRegistro[] = [];
         snapshot.forEach((d) => {
-          results.push(d.data() as PontoRegistro);
+          const data = d.data() as PontoRegistro;
+          if (data && data.id) {
+            results.push(data);
+          }
         });
+        results.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
         onUpdate(results);
       },
       (error) => {

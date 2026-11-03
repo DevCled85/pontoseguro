@@ -1,4 +1,4 @@
-export function compressAndReadFile(file: File, maxDimension = 1600, quality = 0.88): Promise<{
+export function compressAndReadFile(file: File, maxDimension = 1024, quality = 0.72): Promise<{
   dataUrl: string;
   originalSize: number;
   compressedSize: number;
@@ -41,8 +41,16 @@ export function compressAndReadFile(file: File, maxDimension = 1600, quality = 0
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        const compressedSize = Math.round((dataUrl.length * 3) / 4);
+        let activeQuality = quality;
+        let dataUrl = canvas.toDataURL('image/jpeg', activeQuality);
+        let compressedSize = Math.round((dataUrl.length * 3) / 4);
+
+        // If compressed size is over 350KB, step down quality to protect Firestore 1MB document limit
+        if (compressedSize > 350000) {
+          activeQuality = 0.55;
+          dataUrl = canvas.toDataURL('image/jpeg', activeQuality);
+          compressedSize = Math.round((dataUrl.length * 3) / 4);
+        }
 
         resolve({
           dataUrl,
