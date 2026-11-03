@@ -1,0 +1,6 @@
+{
+  "name": "PontoSeguro - Comprovantes e Canhotos de Ponto",
+  "description": "Sistema charmoso e seguro para registrar fotos de canhotos de ponto, calcular horas de entrada, almoço e saída, proteger com senha e auditar divergências com o RH.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

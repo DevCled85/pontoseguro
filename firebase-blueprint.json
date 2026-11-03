@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "PontoRegistro": {
+      "title": "Ponto Registro",
+      "description": "Registro de ponto do canhoto com fotos e horários",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "data": { "type": "string" },
+        "entrada1": { "type": "string" },
+        "saida1": { "type": "string" },
+        "entrada2": { "type": "string" },
+        "saida2": { "type": "string" },
+        "horasTrabalhadasMinutos": { "type": "number" },
+        "saldoMinutos": { "type": "number" },
+        "comprovanteFotoUrl": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "status": { "type": "string" },
+        "funcionarioNome": { "type": "string" },
+        "empresaNome": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "data", "funcionarioNome", "empresaNome", "updatedAt"]
+    },
+    "UserConfig": {
+      "title": "Configuração do Trabalhador",
+      "description": "Configurações e dados cadastrais da empresa e funcionário",
+      "type": "object",
+      "properties": {
+        "funcionarioNome": { "type": "string" },
+        "empresaNome": { "type": "string" },
+        "pinHash": { "type": "string" },
+        "cargaHorariaDiariaMinutos": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["funcionarioNome", "empresaNome", "pinHash", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/pontos_registros/{registroId}": {
+      "entity": "PontoRegistro",
+      "description": "Comprovantes de ponto diários do funcionário"
+    },
+    "/app_config/{configId}": {
+      "entity": "UserConfig",
+      "description": "Configurações da empresa e PIN de segurança"
+    }
+  }
+}
