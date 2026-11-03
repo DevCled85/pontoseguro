@@ -610,6 +610,7 @@ export default function App() {
         preselectedDate={preselectedDate}
         defaultEmpresa={securityConfig?.empresaPadrao || 'Vidronox'}
         jornadaPadraoMinutos={securityConfig?.jornadaPadraoMinutos || 480}
+        existingRecords={registros}
       />
 
       <DayDetailsModal

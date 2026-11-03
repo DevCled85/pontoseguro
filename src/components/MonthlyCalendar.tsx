@@ -242,19 +242,27 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
                         : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
                     }`}
                   >
-                    <div className="flex items-center gap-1 font-mono text-[11px] sm:text-xs font-bold leading-tight truncate">
+                    <div className="flex items-center gap-1 font-mono text-[10px] sm:text-xs font-bold leading-tight truncate">
                       {isDivergence ? (
                         <AlertTriangle className="h-3 w-3 text-rose-600 shrink-0" />
                       ) : isApproved ? (
                         <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                       ) : (
-                        <HelpCircle className="h-3 w-3 text-slate-400 shrink-0" />
+                        <Clock className="h-3 w-3 text-emerald-600 shrink-0" />
                       )}
-                      <span>{minutesToTimeString(cell.record.totalMinutosTrabalhados)}</span>
+                      <span>
+                        {cell.record.totalMinutosTrabalhados > 0
+                          ? minutesToTimeString(cell.record.totalMinutosTrabalhados)
+                          : cell.record.entrada
+                          ? `Batida ${cell.record.entrada}`
+                          : 'Ponto Registrado'}
+                      </span>
                     </div>
 
-                    <div className="mt-0.5 text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate hidden sm:block">
-                      {cell.record.entrada || '--:--'} ~ {cell.record.saidaFinal || '--:--'}
+                    <div className="mt-0.5 text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-300 font-mono truncate">
+                      {[cell.record.entrada, cell.record.saidaAlmoco, cell.record.retornoAlmoco, cell.record.saidaFinal]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </div>
 
                     {isDivergence && (

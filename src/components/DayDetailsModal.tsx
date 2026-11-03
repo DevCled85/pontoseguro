@@ -234,10 +234,10 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                     onClose();
                     onEdit(registro);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
                 >
-                  <Edit2 className="h-3.5 w-3.5" />
-                  <span>Editar Horários</span>
+                  <Camera className="h-3.5 w-3.5" />
+                  <span>+ Fotografar Próxima Batida</span>
                 </button>
 
                 <button

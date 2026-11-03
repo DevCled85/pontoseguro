@@ -17,6 +17,14 @@ export interface PontoRegistro {
   statusRh: StatusRh;
   motivoDivergencia?: string;
   observacoes?: string;
+  isSabado?: boolean;
+  fotosBatidas?: {
+    tipo: 'entrada' | 'saidaAlmoco' | 'retornoAlmoco' | 'saidaFinal';
+    hora: string;
+    nsr?: string;
+    fotoUrl: string;
+    criadoEm: string;
+  }[];
   criadoEm: string;
   atualizadoEm: string;
 }
