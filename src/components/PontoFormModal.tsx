@@ -136,18 +136,14 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
       setFotoUrl(compressed.dataUrl);
       setFotoNome(file.name || 'canhoto_foto.jpg');
       setFotoTamanhoOriginal(compressed.originalSize);
+      setScanMessage('Foto anexada com sucesso! Você pode salvar diretamente ou clicar em "Ler com IA" para extrair os horários.');
 
-      // Check if API key is needed on GitHub Pages
+      // If user already configured Gemini API key or backend is available, scan automatically
       const isGitHubPages = window.location.hostname.includes('github.io');
-      if (isGitHubPages && !hasGeminiApiKey()) {
-        setShowApiKeyPrompt(true);
-        setScanMessage('Foto anexada. Para a IA ler os horários no GitHub Pages, informe sua chave Gemini abaixo.');
-        return;
-      }
-
-      // Automatically scan if no times are filled yet
-      if (!entrada && !saidaFinal) {
-        scanImageWithAi(compressed.dataUrl);
+      if (!isGitHubPages || hasGeminiApiKey()) {
+        if (!entrada && !saidaFinal) {
+          scanImageWithAi(compressed.dataUrl);
+        }
       }
     } catch (err: unknown) {
       const e = err as Error;
@@ -497,26 +493,37 @@ export const PontoFormModal: React.FC<PontoFormModalProps> = ({
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
                       type="button"
+                      onClick={() => scanImageWithAi(fotoUrl)}
+                      disabled={isScanning}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>{isScanning ? 'Lendo...' : 'Ler com IA (Opcional)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => cameraInputRef.current?.click()}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
                       <Camera className="h-3.5 w-3.5" />
-                      <span>Tirar Outra Foto</span>
+                      <span>Tirar Outra</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => galleryInputRef.current?.click()}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      <span>Escolher da Galeria</span>
+                      <span>Galeria</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setShowApiKeyPrompt((prev) => !prev)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-medium transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 text-xs font-medium transition-colors cursor-pointer"
+                      title="Configurar chave do Google Gemini para IA"
                     >
                       <Key className="h-3.5 w-3.5" />
                       <span>Chave IA</span>

@@ -437,123 +437,40 @@ function createSampleCanhotoReceiptSvg(
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+export async function purgeMockData(): Promise<void> {
+  const mockIds = ['ponto-divergencia-1', 'ponto-hoje-2', 'ponto-anteontem-3'];
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(STORE_REGISTROS, 'readwrite');
+    const store = tx.objectStore(STORE_REGISTROS);
+    for (const id of mockIds) {
+      store.delete(id);
+    }
+  } catch (e) {
+    console.warn('Erro ao limpar dados locais mockados:', e);
+  }
+}
+
 export async function seedInitialDataIfEmpty(): Promise<boolean> {
-  const existing = await getAllRegistros();
-  if (existing.length > 0) return false;
+  // Purge any residual mock records to ensure a completely clean zeroed database
+  await purgeMockData();
 
-  const todayStr = getTodayDateString();
-  const yesterdayStr = getYesterdayDateString();
+  // Set default initial security config (PIN: 9655) if not already set
+  const existingConfig = await getSecurityConfig();
+  if (!existingConfig) {
+    const defaultConfig: UserSecurityConfig = {
+      hasPin: true,
+      pinHash: await hashPin('9655'),
+      autoLockMinutes: 15,
+      lastActiveTimestamp: Date.now(),
+      userName: 'Cledson do Nascimento Pereira',
+      jornadaPadraoMinutos: 480,
+      empresaPadrao: 'Vidronox',
+    };
+    await saveSecurityConfig(defaultConfig);
+  }
 
-  // Create three realistic entries:
-  const j1 = calculateJornada('08:02', '12:05', '13:04', '18:15', 480);
-  const reg1: PontoRegistro = {
-    id: 'ponto-divergencia-1',
-    data: yesterdayStr,
-    entrada: '08:02',
-    saidaAlmoco: '12:05',
-    retornoAlmoco: '13:04',
-    saidaFinal: '18:15',
-    totalMinutosTrabalhados: j1.totalMinutosTrabalhados,
-    totalMinutosIntervalo: j1.totalMinutosIntervalo,
-    saldoMinutos: j1.saldoMinutos,
-    fotoUrl: createSampleCanhotoReceiptSvg(
-      'Vidronox',
-      yesterdayStr,
-      '00039481',
-      '08:02',
-      '12:05',
-      '13:04',
-      '18:15'
-    ),
-    fotoNome: 'canhoto_ontem.jpg',
-    nsr: '00039481',
-    empresa: 'Vidronox',
-    statusRh: 'divergencia',
-    motivoDivergencia:
-      'Espelho do ponto do RH registrou saída às 17:00 com desconto de banco de horas, mas o canhoto físico comprova saída real às 18:15 (+1h15 de hora extra).',
-    observacoes: 'Apresentar este canhoto na segunda-feira para o coordenador de RH retificar o espelho.',
-    criadoEm: new Date(Date.now() - 86400000).toISOString(),
-    atualizadoEm: new Date(Date.now() - 86400000).toISOString(),
-  };
-
-  const j2 = calculateJornada('07:58', '12:00', '13:00', '17:02', 480);
-  const reg2: PontoRegistro = {
-    id: 'ponto-hoje-2',
-    data: todayStr,
-    entrada: '07:58',
-    saidaAlmoco: '12:00',
-    retornoAlmoco: '13:00',
-    saidaFinal: '17:02',
-    totalMinutosTrabalhados: j2.totalMinutosTrabalhados,
-    totalMinutosIntervalo: j2.totalMinutosIntervalo,
-    saldoMinutos: j2.saldoMinutos,
-    fotoUrl: createSampleCanhotoReceiptSvg(
-      'Vidronox',
-      todayStr,
-      '00039599',
-      '07:58',
-      '12:00',
-      '13:00',
-      '17:02'
-    ),
-    fotoNome: 'canhoto_hoje.jpg',
-    nsr: '00039599',
-    empresa: 'Vidronox',
-    statusRh: 'aprovado',
-    observacoes: 'Dia regular cumprido conforme escala padrão de 8 horas.',
-    criadoEm: new Date().toISOString(),
-    atualizadoEm: new Date().toISOString(),
-  };
-
-  const d3 = new Date();
-  d3.setDate(d3.getDate() - 2);
-  const d3Str = `${d3.getFullYear()}-${String(d3.getMonth() + 1).padStart(2, '0')}-${String(d3.getDate()).padStart(2, '0')}`;
-  const j3 = calculateJornada('08:10', '12:15', '13:15', '17:40', 480);
-  const reg3: PontoRegistro = {
-    id: 'ponto-anteontem-3',
-    data: d3Str,
-    entrada: '08:10',
-    saidaAlmoco: '12:15',
-    retornoAlmoco: '13:15',
-    saidaFinal: '17:40',
-    totalMinutosTrabalhados: j3.totalMinutosTrabalhados,
-    totalMinutosIntervalo: j3.totalMinutosIntervalo,
-    saldoMinutos: j3.saldoMinutos,
-    fotoUrl: createSampleCanhotoReceiptSvg(
-      'Vidronox',
-      d3Str,
-      '00039322',
-      '08:10',
-      '12:15',
-      '13:15',
-      '17:40'
-    ),
-    fotoNome: 'canhoto_2dias_atras.jpg',
-    nsr: '00039322',
-    empresa: 'Vidronox',
-    statusRh: 'pendente',
-    observacoes: 'Aguardando fechamento da quinzena para conferir se o atraso de 10 min foi compensado na saída.',
-    criadoEm: d3.toISOString(),
-    atualizadoEm: d3.toISOString(),
-  };
-
-  await saveRegistro(reg1);
-  await saveRegistro(reg2);
-  await saveRegistro(reg3);
-
-  // Set default initial security config (PIN: 9655)
-  const defaultConfig: UserSecurityConfig = {
-    hasPin: true,
-    pinHash: await hashPin('9655'),
-    autoLockMinutes: 15,
-    lastActiveTimestamp: Date.now(),
-    userName: 'Cledson do Nascimento Pereira',
-    jornadaPadraoMinutos: 480,
-    empresaPadrao: 'Vidronox',
-  };
-  await saveSecurityConfig(defaultConfig);
-
-  return true;
+  return false;
 }
 
 export async function hashPin(input: string): Promise<string> {
